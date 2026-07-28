@@ -166,13 +166,13 @@ d3.csv("data/merged_2026.csv", d3.autoType).then(data => {
   svg.append("text")
     .attr("x", margin.left + 14).attr("y", 112)
     .style("font-family", "Gabarito, sans-serif")
-    .style("font-size", "13px").style("fill", "#888888")
+    .style("font-size", "13px").style("fill", "#555555")
     .text("Wikipedia pageviews · Jan – Jun 2026")
 
   svg.append("text")
     .attr("x", margin.left + 14).attr("y", 130)
     .style("font-family", "Gabarito, sans-serif")
-    .style("font-size", "13px").style("fill", "#888888")
+    .style("font-size", "13px").style("fill", "#555555")
     .text("Each dot is one article. Size = views. Click to trace its journey.")
 
   // Legend top right
@@ -272,7 +272,7 @@ d3.csv("data/merged_2026.csv", d3.autoType).then(data => {
       .attr("x1", xScale(month)).attr("x2", xScale(month))
       .attr("y1", yScale(monthMax.get(month)))
       .attr("y2", yScale(monthMin.get(month)))
-      .attr("stroke", "#666666").attr("stroke-width", 1)
+      .attr("stroke", "#444444").attr("stroke-width", 1)
       .attr("stroke-dasharray", "4,4")
   })
 
@@ -306,7 +306,7 @@ d3.csv("data/merged_2026.csv", d3.autoType).then(data => {
       .style("text-anchor", "middle")
       .style("font-size", "9px")
       .style("font-family", "Gabarito, sans-serif")
-      .style("fill", "#999999")
+      .style("fill", "#666666")
       .text(`${(total/1e6).toFixed(0)}M`)
   })
 
@@ -331,7 +331,7 @@ d3.csv("data/merged_2026.csv", d3.autoType).then(data => {
       .attr("x", -8).attr("y", yScale(r.value) + 4)
       .style("font-size", "10px")
       .style("font-family", "Gabarito, sans-serif")
-      .style("fill", "#666666").style("text-anchor", "end")
+      .style("fill", "#444444").style("text-anchor", "end")
       .style("font-weight", "600")
       .text(r.label)
 
@@ -374,7 +374,7 @@ d3.csv("data/merged_2026.csv", d3.autoType).then(data => {
       ag.append("line")
         .attr("x1", x).attr("y1", y)
         .attr("x2", x + a.dx).attr("y2", y + a.dy)
-        .attr("stroke", "#999999").attr("stroke-width", 0.8)
+        .attr("stroke", "#666666").attr("stroke-width", 0.8)
 
       ag.append("text")
         .attr("x", x + a.dx + (a.dx > 0 ? 4 : -4))

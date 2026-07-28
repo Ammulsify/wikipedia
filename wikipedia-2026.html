@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>What the World Looked Up · Ammulsify</title>
+  <title>What the World Looked Up · Nirukti</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Gabarito:wght@400..900&display=swap" rel="stylesheet">
   <style>
@@ -41,18 +41,6 @@
       line-height: 1.5;
       z-index: 1000;
     }
-
-    .error-message {
-      max-width: 640px;
-      margin: 80px 24px;
-      padding: 24px;
-      border-left: 4px solid #FE4A49;
-      background: #fff8f8;
-      color: #333;
-      line-height: 1.5;
-    }
-
-    .error-message code { font-family: monospace; }
   </style>
 </head>
 <body>
@@ -62,7 +50,6 @@
 
 <script>
 d3.csv("data/merged_2026.csv", d3.autoType).then(data => {
-  if (!data.length) throw new Error("The data file is empty.")
 
   const size = { w: 780, h: 800 }
   const margin = { top: 220, bottom: 120, left: 80, right: 80 }
@@ -646,13 +633,8 @@ d3.csv("data/merged_2026.csv", d3.autoType).then(data => {
     .attr("x", margin.left).attr("y", totalH - 16)
     .style("font-family", "Gabarito, sans-serif")
     .style("font-size", "10px").style("fill", "#bbbbbb")
-    .text("Data: Wikimedia Topviews · Analysis & design: Ammulsify")
+    .text("Data: Wikimedia Topviews · Analysis & design: Nirukti")
 
-}).catch(error => {
-  console.error("Unable to load chart data:", error)
-  d3.select("#chart").append("div")
-    .attr("class", "error-message")
-    .html("<h1>Chart data is unavailable</h1><p>Add <code>data/merged_2026.csv</code> to this repository, then republish the site.</p>")
 })
 </script>
 </body>

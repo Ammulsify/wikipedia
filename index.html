@@ -112,10 +112,10 @@ d3.csv("data/merged_2026.csv", d3.autoType).then(data => {
   }
 
   function dotOpacity(d) {
-    if (d.Tier === 'Sustained') return 0.85
-    if (d.Tier === 'Recurring') return 0.6
-    return 0.5
-  }
+  if (d.Tier === 'Sustained') return 0.95
+  if (d.Tier === 'Recurring') return 0.85
+  return 0.75
+}
 
   // SVG
   const svg = d3.select("#chart")
@@ -232,10 +232,10 @@ d3.csv("data/merged_2026.csv", d3.autoType).then(data => {
   const defs = svg.append("defs")
 
   const gradients = [
-    { id: "grad-sustained", inner: "#FFCECC", outer: "#E8524A" },
-    { id: "grad-recurring", inner: "#FFE4CC", outer: "#E8834A" },
-    { id: "grad-spike", inner: "#CCF0F8", outer: "#3AACCB" }
-  ]
+  { id: "grad-sustained", inner: "#FFB3AF", outer: "#D93830" },
+  { id: "grad-recurring", inner: "#FFCFAA", outer: "#D96820" },
+  { id: "grad-spike", inner: "#A8E4F5", outer: "#1A9ABF" }
+]
 
   gradients.forEach(gr => {
     const grad = defs.append("radialGradient")

@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>What the World Looked Up · Ammulsify</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Gabarito:wght@400..900&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: white;
+      font-family: 'Gabarito', sans-serif;
+      display: flex;
+      justify-content: center;
+      padding: 20px 0 40px;
+    }
+
+    #chart {
+      width: 100%;
+      max-width: 940px;
+    }
+
+    #chart svg {
+      width: 100%;
+      height: auto;
+    }
+
+    .tooltip {
+      position: fixed;
+      background: #0c0c0c;
+      color: #E6E6EA;
+      padding: 6px 10px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-family: 'Gabarito', sans-serif;
+      pointer-events: none;
+      display: none;
+      max-width: 180px;
+      line-height: 1.5;
+      z-index: 1000;
+    }
+
+    .error-message {
+      max-width: 640px;
+      margin: 80px 24px;
+      padding: 24px;
+      border-left: 4px solid #FE4A49;
+      background: #fff8f8;
+      color: #333;
+      line-height: 1.5;
+    }
+
+    .error-message code { font-family: monospace; }
+  </style>
+</head>
+<body>
+
+<div id="chart"></div>
+<div class="tooltip" id="tooltip"></div>
+
+<script>
+d3.csv("data/merged_2026.csv", d3.autoType).then(data => {
+  if (!data.length) throw new Error("The data file is empty.")
+
+  const size = { w: 780, h: 800 }
+  const margin = { top: 220, bottom: 120, left: 80, right: 80 }
+  const totalW = size.w + margin.left + margin.right
+  const totalH = size.h + margin.top + margin.bottom
+  const months = ["January", "February", "March", "April", "May", "June"]
+
+  const monthTotals = d3.rollup(data, v => d3.sum(v, d => d.Views), d => d.Month)
+
+  data.forEach(d => {
+    if (d.jitter === undefined) d.jitter = (Math.random() - 0.5) * 45
+  })
+
+  const xScale = d3.scalePoint()
+    .domain(months).range([0, size.w]).padding(0.5)
+
+  const yScale = d3.scaleLog()
+    .domain([230649, d3.max(data, d => d.Views)])
+    .range([size.h, 0])
+
+  const rScale = d3.scaleSqrt()
+    .domain([d3.min(data, d => d.Views), d3.max(data, d => d.Views)])
+    .range([1, 25])
+
+  function dotColorFlat(d) {
+    if (d.Tier === 'Sustained') return "#E8524A"
+    if (d.Tier === 'Recurring') return "#E8834A"
+    return "#3AACCB"
+  }
+
+  function dotColor(d) {
+    if (d.Tier === 'Sustained') return "url(#grad-sustained)"
+    if (d.Tier === 'Recurring') return "url(#grad-recurring)"
+    return "url(#grad-spike)"
+  }
+
+  function dotOpacity(d) {
+    if (d.Tier === 'Sustained') return 0.85
+    if (d.Tier === 'Recurring') return 0.6
+    return 0.5
+  }
+
+  // SVG
+  const svg = d3.select("#chart")
+    .append("svg")
+    .attr("viewBox", `0 0 ${totalW} ${totalH}`)
+    .attr("preserveAspectRatio", "xMidYMid meet")
+
+  svg.append("rect")
+    .attr("width", totalW).attr("height", totalH)
+    .attr("fill", "white")
+    .on("click", reset)
+
+  // Grid
+  const gridSize = 10
+  for (let x = 0; x <= totalW; x += gridSize) {
+    svg.append("line")
+      .attr("x1", x).attr("x2", x)
+      .attr("y1", 0).attr("y2", totalH)
+      .attr("stroke", "#FED766").attr("stroke-width", 1).attr("stroke-opacity", 0.4)
+  }
+  for (let y = 0; y <= totalH; y += gridSize) {
+    svg.append("line")
+      .attr("x1", 0).attr("x2", totalW)
+      .attr("y1", y).attr("y2", y)
+      .attr("stroke", "#FED766").attr("stroke-width", 1).attr("stroke-opacity", 0.4)
+  }
+
+  // Header
+  svg.append("rect")
+    .attr("x", margin.left).attr("y", 28)
+    .attr("width", 3).attr("height", 52)
+    .attr("fill", "#FE4A49")
+
+  svg.append("text")
+    .attr("x", margin.left + 14).attr("y", 52)
+    .style("font-family", "Archivo Black, sans-serif")
+    .style("font-size", "30px").style("fill", "#0c0c0c")
+    .style("letter-spacing", "-0.01em")
+    .text("What the World")
+
+  svg.append("text")
+    .attr("x", margin.left + 14).attr("y", 84)
+    .style("font-family", "Archivo Black, sans-serif")
+    .style("font-size", "30px").style("fill", "#0c0c0c")
+    .style("letter-spacing", "-0.01em")
+    .text("Looked Up")
+
+  svg.append("text")
+    .attr("x", margin.left + 14).attr("y", 112)
+    .style("font-family", "Gabarito, sans-serif")
+    .style("font-size", "13px").style("fill", "#888888")
+    .text("Wikipedia pageviews · Jan – Jun 2026")
+
+  svg.append("text")
+    .attr("x", margin.left + 14).attr("y", 130)
+    .style("font-family", "Gabarito, sans-serif")
+    .style("font-size", "13px").style("fill", "#888888")
+    .text("Each dot is one article. Size = views. Click to trace its journey.")
+
+  // Legend top right
+  const legendItems = [
+    { tier: "Sustained", color: "#FE4A49", label: "all 6 months" },
+    { tier: "Recurring", color: "#FF8C69", label: "2–5 months" },
+    { tier: "Spike", color: "#2AB7CA", label: "one month only" }
+  ]
+
+  svg.append("text")
+    .attr("x", totalW - margin.right).attr("y", 42)
+    .style("text-anchor", "end")
+    .style("font-family", "Gabarito, sans-serif")
+    .style("font-size", "9px").style("fill", "#aaaaaa")
+    .style("letter-spacing", "0.1em")
+    .text("CLICK TO FILTER ↓")
+
+  legendItems.forEach((d, i) => {
+    const row = svg.append("g")
+      .attr("transform", `translate(${totalW - margin.right - 150}, ${56 + i * 28})`)
+      .style("cursor", "pointer")
+      .on("click", function(event) {
+        event.stopPropagation()
+        filterByTier(d.tier)
+      })
+
+    row.append("circle")
+      .attr("class", `legend-dot-${d.tier}`)
+      .attr("r", 7).attr("cx", 0).attr("cy", 0)
+      .attr("fill", d.color).attr("fill-opacity", 0.9)
+
+    row.append("text")
+      .attr("x", 14).attr("y", 4)
+      .style("font-size", "11px")
+      .style("font-family", "Gabarito, sans-serif")
+      .style("fill", "#333333").style("font-weight", "600")
+      .text(d.tier)
+
+    row.append("text")
+      .attr("x", 14 + d.tier.length * 7.5).attr("y", 4)
+      .style("font-size", "11px")
+      .style("font-family", "Gabarito, sans-serif")
+      .style("fill", "#aaaaaa")
+      .text(` — ${d.label}`)
+  })
+
+  // Nudge text
+  const nudgeText = svg.append("text")
+    .attr("x", totalW / 2).attr("y", totalH - 16)
+    .style("text-anchor", "middle")
+    .style("font-family", "Gabarito, sans-serif")
+    .style("font-size", "10px").style("fill", "#aaaaaa")
+    .style("opacity", 0)
+    .text("← click outside or any dot to reset")
+
+  // Radial gradients
+  const defs = svg.append("defs")
+
+  const gradients = [
+    { id: "grad-sustained", inner: "#FFCECC", outer: "#E8524A" },
+    { id: "grad-recurring", inner: "#FFE4CC", outer: "#E8834A" },
+    { id: "grad-spike", inner: "#CCF0F8", outer: "#3AACCB" }
+  ]
+
+  gradients.forEach(gr => {
+    const grad = defs.append("radialGradient")
+      .attr("id", gr.id)
+      .attr("cx", "50%").attr("cy", "40%").attr("r", "70%")
+
+    grad.append("stop")
+      .attr("offset", "0%")
+      .attr("stop-color", gr.inner).attr("stop-opacity", 1)
+
+    grad.append("stop")
+      .attr("offset", "100%")
+      .attr("stop-color", gr.outer).attr("stop-opacity", 1)
+  })
+
+  // g
+  const g = svg.append("g")
+    .attr("transform", `translate(${margin.left}, ${margin.top})`)
+
+  g.append("rect")
+    .attr("width", size.w).attr("height", size.h)
+    .attr("fill", "transparent")
+    .on("click", function(event) {
+      event.stopPropagation()
+      reset()
+    })
+
+  // Month lines
+  const monthMin = d3.rollup(data, v => d3.min(v, d => d.Views), d => d.Month)
+  const monthMax = d3.rollup(data, v => d3.max(v, d => d.Views), d => d.Month)
+
+  months.forEach(month => {
+    g.append("line")
+      .attr("x1", xScale(month)).attr("x2", xScale(month))
+      .attr("y1", yScale(monthMax.get(month)))
+      .attr("y2", yScale(monthMin.get(month)))
+      .attr("stroke", "#666666").attr("stroke-width", 1)
+      .attr("stroke-dasharray", "4,4")
+  })
+
+  // X axis
+  g.append("g")
+    .attr("transform", `translate(0, ${size.h + 36})`)
+    .call(d3.axisBottom(xScale).tickSize(0))
+    .call(g => g.select(".domain").remove())
+    .selectAll("text")
+    .style("font-size", "12px").style("fill", "#0c0c0c")
+    .style("font-family", "Gabarito, sans-serif")
+    .style("font-weight", "700")
+
+  // Total views bars
+  const maxTotal = d3.max(monthTotals.values())
+  months.forEach(month => {
+    const total = monthTotals.get(month)
+    const barW = (total / maxTotal) * 60
+
+    g.append("rect")
+      .attr("x", xScale(month) - barW / 2)
+      .attr("y", size.h + 52)
+      .attr("width", barW)
+      .attr("height", 3)
+      .attr("rx", 1.5)
+      .attr("fill", "#FED766")
+      .attr("fill-opacity", 0.8)
+
+    g.append("text")
+      .attr("x", xScale(month)).attr("y", size.h + 64)
+      .style("text-anchor", "middle")
+      .style("font-size", "9px")
+      .style("font-family", "Gabarito, sans-serif")
+      .style("fill", "#999999")
+      .text(`${(total/1e6).toFixed(0)}M`)
+  })
+
+  // Reference lines
+  const refLines = [
+    { value: 1000000, label: "1M" },
+    { value: 5000000, label: "5M" },
+    { value: 10000000, label: "10M" },
+    { value: 19000000, label: "19M" }
+  ]
+
+  const refLineGroups = refLines.map(r => {
+    const rg = g.append("g").style("opacity", 0.5)
+
+    rg.append("line")
+      .attr("x1", 0).attr("x2", size.w)
+      .attr("y1", yScale(r.value)).attr("y2", yScale(r.value))
+      .attr("stroke", "#aaaaaa").attr("stroke-width", 0.8)
+      .attr("stroke-dasharray", "2,4")
+
+    rg.append("text")
+      .attr("x", -8).attr("y", yScale(r.value) + 4)
+      .style("font-size", "10px")
+      .style("font-family", "Gabarito, sans-serif")
+      .style("fill", "#666666").style("text-anchor", "end")
+      .style("font-weight", "600")
+      .text(r.label)
+
+    return { group: rg, value: r.value }
+  })
+
+  // Journey line
+  const lineGenerator = d3.line()
+    .x(d => d.x !== undefined ? d.x : xScale(d.Month) + d.jitter)
+    .y(d => d.y !== undefined ? d.y : yScale(d.Views))
+    .curve(d3.curveCatmullRom)
+
+  const journeyLine = g.append("path")
+    .attr("fill", "none").attr("stroke-width", 1.5).attr("stroke-opacity", 0)
+
+  // Annotations
+  const annotationGroup = g.append("g")
+
+  const annotationsData = [
+    { page: "2026 FIFA World Cup", month: "June", views: 19145786,
+      label: "FIFA World Cup", dx: -148, dy: 20 },
+    { page: "Jeffrey Epstein", month: "February", views: 12488220,
+      label: "Epstein files drop", dx: 44, dy: -10 },
+    { page: "Nahui Ollin", month: "April", views: 11954146,
+      label: "Nahui Ollin", dx: 44, dy: -10 },
+    { page: ".xxx", month: "March", views: 10832136,
+      label: ".xxx", dx: 44, dy: 15 },
+  ]
+
+  function drawAnnotations() {
+    annotationGroup.selectAll("*").remove()
+    annotationsData.forEach((a, i) => {
+      const dotData = data.find(d => d.Page === a.page && d.Month === a.month)
+      if (!dotData) return
+      const x = dotData.x !== undefined ? dotData.x : xScale(a.month) + (dotData.jitter || 0)
+      const y = dotData.y !== undefined ? dotData.y : yScale(a.views)
+
+      const ag = annotationGroup.append("g").style("opacity", 0)
+
+      ag.append("line")
+        .attr("x1", x).attr("y1", y)
+        .attr("x2", x + a.dx).attr("y2", y + a.dy)
+        .attr("stroke", "#999999").attr("stroke-width", 0.8)
+
+      ag.append("text")
+        .attr("x", x + a.dx + (a.dx > 0 ? 4 : -4))
+        .attr("y", y + a.dy)
+        .style("text-anchor", a.dx > 0 ? "start" : "end")
+        .style("font-family", "Gabarito, sans-serif")
+        .style("font-size", "11px").style("font-weight", "600")
+        .style("fill", "#333333")
+        .text(a.label)
+
+      setTimeout(() => {
+        ag.transition().duration(600).style("opacity", 1)
+      }, 300 + i * 400)
+    })
+  }
+
+  // Force simulation
+  d3.forceSimulation(data)
+    .force("x", d3.forceX(d => xScale(d.Month)).strength(0.9))
+    .force("y", d3.forceY(d => yScale(d.Views)).strength(0.9))
+    .force("collide", d3.forceCollide(d => rScale(d.Views) + 0.8))
+    .stop().tick(300)
+
+  // Tooltip
+  const toolTip = d3.select("#tooltip")
+
+  let selectedPage = null
+  let activeTier = null
+  let activeCanvas = null
+
+  // Confetti — capped for performance
+  function combustOtherDots(page) {
+    if (activeCanvas) { activeCanvas.remove(); activeCanvas = null }
+
+    const canvas = document.createElement("canvas")
+    canvas.style.position = "fixed"
+    canvas.style.top = "0"
+    canvas.style.left = "0"
+    canvas.style.width = "100vw"
+    canvas.style.height = "100vh"
+    canvas.style.pointerEvents = "none"
+    canvas.style.zIndex = "9999"
+    canvas.width = window.innerWidth
+    canvas.height = window.innerHeight
+    document.body.appendChild(canvas)
+    activeCanvas = canvas
+    const c = canvas.getContext("2d")
+
+    const svgEl = svg.node()
+    const rect = svgEl.getBoundingClientRect()
+    const scaleX = rect.width / totalW
+    const scaleY = rect.height / totalH
+
+    const confettiParticles = []
+
+    circles.each(function(d) {
+      if (d.Page === page) return
+      if (confettiParticles.length >= 600) return
+      const opacity = parseFloat(d3.select(this).attr("fill-opacity"))
+      if (opacity < 0.1) return
+
+      const dotX = d.x + margin.left
+      const dotY = d.y + margin.top
+      const screenX = rect.left + dotX * scaleX
+      const screenY = rect.top + dotY * scaleY
+      const color = dotColorFlat(d)
+
+      confettiParticles.push({
+        x: screenX, y: screenY,
+        vx: (Math.random() - 0.5) * 8,
+        vy: (Math.random() - 0.85) * 10,
+        w: 2 + Math.random() * 4,
+        h: 1.5 + Math.random() * 3,
+        r: Math.random() * Math.PI * 2,
+        vr: (Math.random() - 0.5) * 0.25,
+        color: color,
+        opacity: 0.7 + Math.random() * 0.3,
+        sy: 1,
+        gravity: 0.25 + Math.random() * 0.15
+      })
+    })
+
+    circles.filter(d => d.Page !== page)
+      .transition().duration(80)
+      .attr("fill-opacity", 0)
+
+    let frame
+    function loop() {
+      c.clearRect(0, 0, canvas.width, canvas.height)
+      let alive = false
+
+      confettiParticles.forEach(p => {
+        p.vy += p.gravity
+        p.x += p.vx
+        p.y += p.vy
+        p.r += p.vr
+        p.sy = Math.sin(p.r * 3)
+        p.opacity -= 0.016
+
+        if (p.opacity > 0 && p.y < canvas.height + 20) {
+          alive = true
+          c.save()
+          c.translate(p.x, p.y)
+          c.rotate(p.r)
+          c.scale(1, Math.max(0.05, p.sy))
+          c.globalAlpha = Math.max(0, p.opacity)
+          c.fillStyle = p.color
+          c.fillRect(-p.w / 2, -p.h / 2, p.w, p.h)
+          c.restore()
+        }
+      })
+
+      if (alive) {
+        frame = requestAnimationFrame(loop)
+      } else {
+        cancelAnimationFrame(frame)
+        canvas.remove()
+        if (activeCanvas === canvas) activeCanvas = null
+      }
+    }
+
+    requestAnimationFrame(loop)
+  }
+
+  // Dots
+  const circles = g.append("g")
+    .selectAll("circle")
+    .data(data)
+    .join("circle")
+    .attr("cx", d => d.x).attr("cy", d => d.y)
+    .attr("r", d => rScale(d.Views))
+    .attr("fill", d => dotColor(d))
+    .attr("fill-opacity", 0)
+    .attr("stroke", "none")
+    .style("cursor", "pointer")
+    .on("mousemove", function(event, d) {
+      const opacity = parseFloat(d3.select(this).attr("fill-opacity"))
+      if (opacity > 0.3) {
+        toolTip
+          .style("left", (event.clientX + 14) + "px")
+          .style("top", (event.clientY - 10) + "px")
+          .style("display", "block")
+          .html(`<strong>${d.Page}</strong><br>${d.Month} · ${(d.Views/1e6).toFixed(1)}M views`)
+
+        refLineGroups.forEach(r => {
+          const dist = Math.abs(yScale(r.value) - yScale(d.Views))
+          r.group.transition().duration(200)
+            .style("opacity", dist < 60 ? 1 : 0.3)
+        })
+
+        if (!selectedPage && !activeTier) {
+          circles.filter(c => c.Page !== d.Page)
+            .transition().duration(150)
+            .attr("fill-opacity", c => c.Tier === d.Tier ? dotOpacity(c) * 0.35 : dotOpacity(c))
+        }
+      }
+    })
+    .on("mouseout", function() {
+      toolTip.style("display", "none")
+      refLineGroups.forEach(r => r.group.transition().duration(300).style("opacity", 0.5))
+      if (!selectedPage && !activeTier) {
+        circles.transition().duration(150)
+          .attr("fill-opacity", c => dotOpacity(c))
+      }
+    })
+    .on("click", function(event, d) {
+      event.stopPropagation()
+      highlight(d.Page)
+    })
+
+  // Month by month reveal
+  months.forEach((month, i) => {
+    setTimeout(() => {
+      circles.filter(d => d.Month === month)
+        .transition().duration(400)
+        .attr("fill-opacity", d => dotOpacity(d))
+
+      if (month === "June") {
+        setTimeout(() => {
+          circles
+            .filter(d => d.Page === "2026 FIFA World Cup" && d.Month === "June")
+            .transition().duration(300)
+            .attr("r", d => rScale(d.Views) * 1.5)
+            .transition().duration(500).ease(d3.easeElasticOut)
+            .attr("r", d => rScale(d.Views))
+        }, 500)
+      }
+    }, i * 500)
+  })
+
+  setTimeout(() => drawAnnotations(), months.length * 500 + 200)
+
+  // Filter by tier
+  function filterByTier(tier) {
+    activeTier = tier
+    selectedPage = null
+    annotationGroup.style("display", "none")
+    journeyLine.attr("stroke-opacity", 0)
+
+    circles
+      .transition().duration(300)
+      .attr("fill", d => d.Tier === tier ? dotColor(d) : "#cccccc")
+      .attr("fill-opacity", d => d.Tier === tier ? dotOpacity(d) : 0.06)
+      .attr("r", d => rScale(d.Views))
+
+    legendItems.forEach(l => {
+      svg.select(`.legend-dot-${l.tier}`)
+        .attr("fill-opacity", l.tier === tier ? 1 : 0.25)
+    })
+
+    nudgeText.transition().duration(400).style("opacity", 1)
+  }
+
+  // Highlight
+  function highlight(page) {
+    selectedPage = page
+    activeTier = null
+    annotationGroup.style("display", "none")
+
+    const articleData = data
+      .filter(d => d.Page === page)
+      .sort((a, b) => months.indexOf(a.Month) - months.indexOf(b.Month))
+
+    const tierColor = dotColorFlat(articleData[0])
+
+    combustOtherDots(page)
+
+    circles
+      .filter(d => d.Page === page)
+      .transition().duration(300)
+      .attr("fill", d => dotColor(d))
+      .attr("fill-opacity", 1)
+      .attr("r", d => rScale(d.Views) + 4)
+
+    if (articleData.length > 1) {
+      journeyLine
+        .datum(articleData)
+        .attr("d", lineGenerator)
+        .attr("stroke", tierColor)
+        .transition().duration(400)
+        .attr("stroke-opacity", 0.7)
+    } else {
+      journeyLine.attr("stroke-opacity", 0)
+    }
+
+    legendItems.forEach(l => {
+      svg.select(`.legend-dot-${l.tier}`)
+        .attr("fill-opacity", 0.9)
+    })
+
+    nudgeText.transition().duration(400).style("opacity", 1)
+  }
+
+  function reset() {
+    selectedPage = null
+    activeTier = null
+    annotationGroup.style("display", null)
+
+    if (activeCanvas) { activeCanvas.remove(); activeCanvas = null }
+
+    nudgeText.transition().duration(400).style("opacity", 0)
+
+    circles
+      .transition().duration(300)
+      .attr("fill", d => dotColor(d))
+      .attr("fill-opacity", d => dotOpacity(d))
+      .attr("r", d => rScale(d.Views))
+
+    journeyLine.transition().duration(250).attr("stroke-opacity", 0)
+    refLineGroups.forEach(r => r.group.transition().duration(300).style("opacity", 0.5))
+    toolTip.style("display", "none")
+
+    legendItems.forEach(l => {
+      svg.select(`.legend-dot-${l.tier}`)
+        .attr("fill-opacity", 0.9)
+    })
+  }
+
+  // Source
+  svg.append("text")
+    .attr("x", margin.left).attr("y", totalH - 16)
+    .style("font-family", "Gabarito, sans-serif")
+    .style("font-size", "10px").style("fill", "#bbbbbb")
+    .text("Data: Wikimedia Topviews · Analysis & design: Ammulsify")
+
+}).catch(error => {
+  console.error("Unable to load chart data:", error)
+  d3.select("#chart").append("div")
+    .attr("class", "error-message")
+    .html("<h1>Chart data is unavailable</h1><p>Add <code>data/merged_2026.csv</code> to this repository, then republish the site.</p>")
+})
+</script>
+</body>
+</html>

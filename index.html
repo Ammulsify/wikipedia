@@ -3,7 +3,17 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>What the World Looked Up · Nirukti</title>
+  <title>What the World Looked Up · Ammulsify</title>
+
+  <!-- Open Graph -->
+  <meta property="og:title" content="What the World Looked Up" />
+  <meta property="og:description" content="Wikipedia pageviews Jan–Jun 2026 · 6,000 data points · Click any dot to trace its journey." />
+  <meta property="og:image" content="https://ammulsify.github.io/wikipedia/preview.png" />
+  <meta property="og:url" content="https://ammulsify.github.io/wikipedia/" />
+  <meta property="og:type" content="website" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:image" content="https://ammulsify.github.io/wikipedia/preview.png" />
+
   <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Gabarito:wght@400..900&display=swap" rel="stylesheet">
   <style>
@@ -15,6 +25,7 @@
       display: flex;
       justify-content: center;
       padding: 20px 0 40px;
+      zoom: 0.75;
     }
 
     #chart {
@@ -40,6 +51,20 @@
       max-width: 180px;
       line-height: 1.5;
       z-index: 1000;
+    }
+
+    @media (max-width: 768px) {
+      body { zoom: 1; padding: 10px 0 20px; }
+      #chart { overflow-x: auto; }
+      #chart::before {
+        content: "Best experienced on desktop";
+        display: block;
+        text-align: center;
+        padding: 20px;
+        font-family: 'Gabarito', sans-serif;
+        color: #888888;
+        font-size: 13px;
+      }
     }
   </style>
 </head>
@@ -196,7 +221,7 @@ d3.csv("data/merged_2026.csv", d3.autoType).then(data => {
 
   // Nudge text
   const nudgeText = svg.append("text")
-    .attr("x", totalW / 2).attr("y", totalH - 16)
+    .attr("x", totalW / 2).attr("y", totalH - 40)
     .style("text-anchor", "middle")
     .style("font-family", "Gabarito, sans-serif")
     .style("font-size", "10px").style("fill", "#aaaaaa")
@@ -380,7 +405,7 @@ d3.csv("data/merged_2026.csv", d3.autoType).then(data => {
   let activeTier = null
   let activeCanvas = null
 
-  // Confetti — capped for performance
+  // Confetti — fixed for zoom
   function combustOtherDots(page) {
     if (activeCanvas) { activeCanvas.remove(); activeCanvas = null }
 
@@ -392,16 +417,23 @@ d3.csv("data/merged_2026.csv", d3.autoType).then(data => {
     canvas.style.height = "100vh"
     canvas.style.pointerEvents = "none"
     canvas.style.zIndex = "9999"
-    canvas.width = window.innerWidth
-    canvas.height = window.innerHeight
+
+    // Account for body zoom
+    const zoomLevel = 0.75
+    canvas.width = window.innerWidth / zoomLevel
+    canvas.height = window.innerHeight / zoomLevel
+    canvas.style.width = "100vw"
+    canvas.style.height = "100vh"
+
     document.body.appendChild(canvas)
     activeCanvas = canvas
     const c = canvas.getContext("2d")
+    c.scale(1 / zoomLevel, 1 / zoomLevel)
 
     const svgEl = svg.node()
     const rect = svgEl.getBoundingClientRect()
-    const scaleX = rect.width / totalW
-    const scaleY = rect.height / totalH
+    const scaleX = (rect.width / totalW) * zoomLevel
+    const scaleY = (rect.height / totalH) * zoomLevel
 
     const confettiParticles = []
 
@@ -413,8 +445,8 @@ d3.csv("data/merged_2026.csv", d3.autoType).then(data => {
 
       const dotX = d.x + margin.left
       const dotY = d.y + margin.top
-      const screenX = rect.left + dotX * scaleX
-      const screenY = rect.top + dotY * scaleY
+      const screenX = rect.left / zoomLevel + dotX * scaleX / zoomLevel
+      const screenY = rect.top / zoomLevel + dotY * scaleY / zoomLevel
       const color = dotColorFlat(d)
 
       confettiParticles.push({
@@ -438,7 +470,7 @@ d3.csv("data/merged_2026.csv", d3.autoType).then(data => {
 
     let frame
     function loop() {
-      c.clearRect(0, 0, canvas.width, canvas.height)
+      c.clearRect(0, 0, canvas.width / zoomLevel, canvas.height / zoomLevel)
       let alive = false
 
       confettiParticles.forEach(p => {
@@ -449,7 +481,7 @@ d3.csv("data/merged_2026.csv", d3.autoType).then(data => {
         p.sy = Math.sin(p.r * 3)
         p.opacity -= 0.016
 
-        if (p.opacity > 0 && p.y < canvas.height + 20) {
+        if (p.opacity > 0 && p.y < canvas.height / zoomLevel + 20) {
           alive = true
           c.save()
           c.translate(p.x, p.y)
@@ -633,7 +665,7 @@ d3.csv("data/merged_2026.csv", d3.autoType).then(data => {
     .attr("x", margin.left).attr("y", totalH - 16)
     .style("font-family", "Gabarito, sans-serif")
     .style("font-size", "10px").style("fill", "#bbbbbb")
-    .text("Data: Wikimedia Topviews · Analysis & design: Nirukti")
+    .text("Data: Wikimedia Topviews · Analysis & design: Ammulsify")
 
 })
 </script>
